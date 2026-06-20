@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>IR / Aerochrome Converter</title>
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 0; padding: 1rem; background: #1b1b1f; color: #eee; }
+      h1 { font-size: 1.2rem; }
+      #drop-zone { border: 2px dashed #555; border-radius: 8px; padding: 1rem; text-align: center; margin-bottom: 0.5rem; }
+      #drop-zone.dragover { border-color: #6cf; background: #25303a; }
+      .error { color: #f88; }
+      main { display: flex; gap: 1rem; align-items: flex-start; flex-wrap: wrap; }
+      .images { display: flex; gap: 1rem; flex: 1 1 480px; }
+      figure { margin: 0; flex: 1; }
+      figcaption { font-size: 0.8rem; margin-bottom: 0.25rem; color: #aaa; }
+      canvas { width: 100%; height: auto; background: #000; border: 1px solid #333; }
+      #controls { flex: 0 0 280px; }
+      .group { border: 1px solid #333; border-radius: 6px; padding: 0.5rem 0.75rem; margin-bottom: 0.75rem; }
+      .group h2 { font-size: 0.85rem; margin: 0 0 0.5rem; color: #9cf; }
+      .control { display: grid; grid-template-columns: 70px 1fr 46px; gap: 0.4rem; align-items: center; font-size: 0.78rem; margin-bottom: 0.3rem; }
+      .control output { text-align: right; font-variant-numeric: tabular-nums; }
+      button { background: #2a3440; color: #eee; border: 1px solid #456; border-radius: 5px; padding: 0.35rem 0.6rem; cursor: pointer; }
+      button:disabled { opacity: 0.5; cursor: default; }
+      .presets { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin-top: 0.5rem; }
+      .presets input, .presets select { background: #11151a; color: #eee; border: 1px solid #456; border-radius: 5px; padding: 0.3rem; }
+    </style>
+  </head>
+  <body>
+    <h1>IR / Aerochrome Converter</h1>
+    <div id="drop-zone">
+      <input type="file" id="file-input" accept="image/*" />
+      <span>or drag &amp; drop an image</span>
+    </div>
+    <p id="error" class="error" hidden></p>
+    <main>
+      <section class="images">
+        <figure><figcaption>Original</figcaption><canvas id="source-canvas"></canvas></figure>
+        <figure><figcaption>Result</figcaption><canvas id="result-canvas"></canvas></figure>
+      </section>
+      <aside id="controls">
+        <div id="control-groups"></div>
+        <button id="reset">Reset</button>
+        <button id="export" disabled>Export PNG</button>
+        <div class="presets">
+          <input id="preset-name" type="text" placeholder="Preset name" />
+          <button id="preset-save">Save</button>
+          <select id="preset-list"><option value="">Load preset…</option></select>
+          <button id="preset-delete">Delete</button>
+        </div>
+      </aside>
+    </main>
+    <script type="module" src="/src/ui.js"></script>
+  </body>
+</html>
