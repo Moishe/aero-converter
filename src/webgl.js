@@ -1,0 +1,89 @@
+import fragmentSource from './shader.glsl?raw';
+
+const VERTEX_SOURCE = `
+attribute vec2 a_position;
+varying vec2 v_uv;
+void main() {
+  v_uv = a_position * 0.5 + 0.5;
+  gl_Position = vec4(a_position, 0.0, 1.0);
+}`;
+
+function compile(gl, type, source) {
+  const shader = gl.createShader(type);
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    throw new Error('Shader compile error: ' + gl.getShaderInfoLog(shader));
+  }
+  return shader;
+}
+
+export function createRenderer(canvas) {
+  const gl = canvas.getContext('webgl', { preserveDrawingBuffer: true });
+  if (!gl) throw new Error('WebGL not supported');
+
+  const program = gl.createProgram();
+  gl.attachShader(program, compile(gl, gl.VERTEX_SHADER, VERTEX_SOURCE));
+  gl.attachShader(program, compile(gl, gl.FRAGMENT_SHADER, fragmentSource));
+  gl.linkProgram(program);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    throw new Error('Program link error: ' + gl.getProgramInfoLog(program));
+  }
+  gl.useProgram(program);
+
+  const buffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+    -1, -1, 1, -1, -1, 1,
+    -1, 1, 1, -1, 1, 1,
+  ]), gl.STATIC_DRAW);
+  const aPosition = gl.getAttribLocation(program, 'a_position');
+  gl.enableVertexAttribArray(aPosition);
+  gl.vertexAttribPointer(aPosition, 2, gl.FLOAT, false, 0, 0);
+
+  const texture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+  const u = {
+    opacityG: gl.getUniformLocation(program, 'u_opacityG'),
+    opacityB: gl.getUniformLocation(program, 'u_opacityB'),
+    curveR: gl.getUniformLocation(program, 'u_curveR'),
+    curveG: gl.getUniformLocation(program, 'u_curveG'),
+    curveB: gl.getUniformLocation(program, 'u_curveB'),
+  };
+
+  let width = 0;
+  let height = 0;
+
+  function setImage(source) {
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+    width = source.width;
+    height = source.height;
+    canvas.width = width;
+    canvas.height = height;
+  }
+
+  function render(params) {
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.uniform1f(u.opacityG, params.opacityG);
+    gl.uniform1f(u.opacityB, params.opacityB);
+    gl.uniform3f(u.curveR, params.curveR.gain, params.curveR.gamma, params.curveR.offset);
+    gl.uniform3f(u.curveG, params.curveG.gain, params.curveG.gamma, params.curveG.offset);
+    gl.uniform3f(u.curveB, params.curveB.gain, params.curveB.gamma, params.curveB.offset);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+  }
+
+  function readPixels() {
+    const data = new Uint8Array(width * height * 4);
+    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, data);
+    return { data, width, height };
+  }
+
+  return { setImage, render, readPixels, gl };
+}
