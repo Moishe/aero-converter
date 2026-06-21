@@ -1,6 +1,8 @@
 import { createRenderer } from './webgl.js';
 import { cloneDefaults, withDefaults } from './defaults.js';
 import { loadPresets, savePreset, deletePreset } from './presets.js';
+import { transformPixelPreAnchor, solveAnchor } from './transform.js';
+import { canvasPixelFromEvent } from './coords.js';
 
 const CONTROLS = [
   { group: 'Red output (IR)', items: [
@@ -124,6 +126,10 @@ export function init() {
       sourceCanvas.getContext('2d').drawImage(bitmap, 0, 0);
       hasImage = true;
       exportBtn.disabled = false;
+      anchorButtons.black.disabled = false;
+      anchorButtons.gray.disabled = false;
+      anchorButtons.white.disabled = false;
+      anchorResetBtn.disabled = false;
       render();
     } catch (e) {
       showError('Could not load that image.');
@@ -199,6 +205,58 @@ export function init() {
     if (!name) return;
     deletePreset(name);
     refreshPresetList();
+  });
+
+  // --- Neutral anchor (eyedroppers) ---
+  const sourceCtx = sourceCanvas.getContext('2d');
+  const anchorButtons = {
+    black: $('anchor-black'),
+    gray: $('anchor-gray'),
+    white: $('anchor-white'),
+  };
+  const anchorResetBtn = $('anchor-reset');
+  let anchorMode = null;
+
+  function setAnchorMode(mode) {
+    anchorMode = mode;
+    resultCanvas.style.cursor = mode ? 'crosshair' : '';
+    for (const [m, btn] of Object.entries(anchorButtons)) {
+      btn.classList.toggle('active', m === mode);
+    }
+  }
+
+  for (const [mode, btn] of Object.entries(anchorButtons)) {
+    btn.addEventListener('click', () => setAnchorMode(anchorMode === mode ? null : mode));
+  }
+
+  // Average a 3x3 block (clamped to image bounds) around (x,y); returns channels in [0,1].
+  function sampleSource(x, y) {
+    const x0 = Math.max(0, x - 1), y0 = Math.max(0, y - 1);
+    const x1 = Math.min(sourceCanvas.width - 1, x + 1), y1 = Math.min(sourceCanvas.height - 1, y + 1);
+    const bw = x1 - x0 + 1, bh = y1 - y0 + 1;
+    const data = sourceCtx.getImageData(x0, y0, bw, bh).data;
+    let r = 0, g = 0, b = 0;
+    const n = bw * bh;
+    for (let i = 0; i < n; i++) {
+      r += data[i * 4]; g += data[i * 4 + 1]; b += data[i * 4 + 2];
+    }
+    return { r: r / n / 255, g: g / n / 255, b: b / n / 255 };
+  }
+
+  resultCanvas.addEventListener('click', (e) => {
+    if (!anchorMode || !hasImage) return;
+    const { x, y } = canvasPixelFromEvent(e, resultCanvas);
+    const sample = sampleSource(x, y);
+    const value = transformPixelPreAnchor(sample, params);
+    params.levels = solveAnchor(anchorMode, value, params.levels);
+    setAnchorMode(null);
+    render();
+  });
+
+  anchorResetBtn.addEventListener('click', () => {
+    params.levels = cloneDefaults().levels;
+    setAnchorMode(null);
+    render();
   });
 }
 

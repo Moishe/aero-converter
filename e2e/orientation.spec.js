@@ -26,6 +26,7 @@ test('rendered result is not vertically flipped', async ({ page }) => {
       curveG: { gain: 0.95, gamma: 1, offset: 0 },
       curveB: { gain: 1.05, gamma: 1, offset: 0.02 },
       highlight: { amount: 0, threshold: 0.7 },
+      levels: { black: [0, 0, 0], white: [1, 1, 1], gamma: [1, 1, 1] },
     });
 
     // Read top-down (matches display + PNG export orientation).
