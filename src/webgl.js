@@ -4,7 +4,10 @@ const VERTEX_SOURCE = `
 attribute vec2 a_position;
 varying vec2 v_uv;
 void main() {
-  v_uv = a_position * 0.5 + 0.5;
+  // Flip V here rather than via UNPACK_FLIP_Y_WEBGL: that pixel-store flag is
+  // not honored for ImageBitmap uploads (the app's load path), so doing the
+  // flip in the shader keeps orientation correct for every source type.
+  v_uv = vec2(a_position.x * 0.5 + 0.5, 0.5 - a_position.y * 0.5);
   gl_Position = vec4(a_position, 0.0, 1.0);
 }`;
 
@@ -60,7 +63,8 @@ export function createRenderer(canvas) {
   let height = 0;
 
   function setImage(source) {
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    // Orientation is handled in the vertex shader (see VERTEX_SOURCE); no
+    // UNPACK_FLIP_Y_WEBGL here, as it is unreliable for ImageBitmap sources.
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
     width = source.width;
