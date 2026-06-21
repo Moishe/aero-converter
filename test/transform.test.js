@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { clamp01, curve, transformPixel } from '../src/transform.js';
+import { clamp01, curve, transformPixel, smoothstep, applyHighlightDesat } from '../src/transform.js';
 import { DEFAULTS, cloneDefaults } from '../src/defaults.js';
 
 const IDENTITY = { gain: 1, gamma: 1, offset: 0 };
@@ -70,5 +70,60 @@ describe('DEFAULTS', () => {
     const a = cloneDefaults();
     a.curveR.gain = 99;
     expect(DEFAULTS.curveR.gain).toBe(1.0);
+  });
+});
+
+describe('smoothstep', () => {
+  it('is 0 at or below e0 and 1 at or above e1', () => {
+    expect(smoothstep(0.5, 1, 0.4)).toBe(0);
+    expect(smoothstep(0.5, 1, 0.5)).toBe(0);
+    expect(smoothstep(0.5, 1, 1)).toBe(1);
+    expect(smoothstep(0.5, 1, 1.2)).toBe(1);
+  });
+  it('is 0.5 at the midpoint', () => {
+    expect(smoothstep(0, 1, 0.5)).toBeCloseTo(0.5, 10);
+  });
+  it('does not divide by zero when e0 === e1', () => {
+    expect(Number.isFinite(smoothstep(1, 1, 1))).toBe(true);
+  });
+});
+
+describe('applyHighlightDesat', () => {
+  it('is identity when amount is 0', () => {
+    const px = { r: 0.9, g: 0.2, b: 0.8 };
+    expect(applyHighlightDesat(px, { amount: 0, threshold: 0.7 })).toEqual(px);
+  });
+  it('leaves a pixel at or below threshold untouched', () => {
+    const dark = { r: 0.4, g: 0.1, b: 0.3 }; // value 0.4 <= 0.7
+    expect(applyHighlightDesat(dark, { amount: 1, threshold: 0.7 })).toEqual(dark);
+  });
+  it('fully neutralizes a value-1 pixel to its value when fully applied', () => {
+    const out = applyHighlightDesat({ r: 1, g: 0.2, b: 0.8 }, { amount: 1, threshold: 0.5 });
+    expect(out.r).toBeCloseTo(1, 10);
+    expect(out.g).toBeCloseTo(1, 10);
+    expect(out.b).toBeCloseTo(1, 10);
+  });
+  it('keeps output within [0,1]', () => {
+    const out = applyHighlightDesat({ r: 1, g: 0, b: 0.5 }, { amount: 1, threshold: 0 });
+    for (const v of [out.r, out.g, out.b]) {
+      expect(v).toBeGreaterThanOrEqual(0);
+      expect(v).toBeLessThanOrEqual(1);
+    }
+  });
+});
+
+describe('transformPixel with highlight', () => {
+  it('is unchanged from the channel transform when highlight is off (default)', () => {
+    const params = cloneDefaults(); // amount 0
+    const out = transformPixel({ r: 0.2, g: 0.4, b: 0.7 }, params);
+    expect(out.r).toBeCloseTo(curve(0.7, params.curveR), 10);
+    expect(out.g).toBeCloseTo(curve(0.2 - 0.5 * 0.7, params.curveG), 10);
+    expect(out.b).toBeCloseTo(curve(0.4 - 0.5 * 0.7, params.curveB), 10);
+  });
+});
+
+describe('DEFAULTS highlight', () => {
+  it('defaults to off', () => {
+    expect(DEFAULTS.highlight).toEqual({ amount: 0.0, threshold: 0.7 });
   });
 });
