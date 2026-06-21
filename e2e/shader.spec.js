@@ -18,9 +18,16 @@ function desatParams() {
   return p;
 }
 
+function levelsParams() {
+  const p = cloneDefaults();
+  p.levels = { black: [0.1, 0.05, 0.0], white: [0.9, 0.95, 1.0], gamma: [1.3, 1.0, 0.8] };
+  return p;
+}
+
 const PARAM_SETS = [
-  { label: 'defaults (highlight off)', params: cloneDefaults() },
+  { label: 'defaults', params: cloneDefaults() },
   { label: 'highlight desaturation on', params: desatParams() },
+  { label: 'neutral anchor levels on', params: levelsParams() },
 ];
 
 test('shader output matches the transform.js reference', async ({ page }) => {
