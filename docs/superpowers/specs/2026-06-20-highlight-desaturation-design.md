@@ -67,8 +67,10 @@ highlight: { amount: 0.0, threshold: 0.7 }
   using the existing control config / slider-build pattern. The `getPath`/`setPath`
   helpers already handle the `highlight.amount` / `highlight.threshold` paths.
 
-Presets need no code change: the new field serializes through `savePreset` /
-`loadPresets` automatically.
+Presets saved after this feature ship include the `highlight` block automatically.
+Presets saved before this feature are missing the `highlight` key; loading one
+requires backfilling defaults via `withDefaults(preset)` (from `src/defaults.js`)
+so that `params.highlight` is never undefined when controls or the renderer read it.
 
 ## UI
 

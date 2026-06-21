@@ -372,7 +372,7 @@ git commit -m "Add Highlights control group to the UI"
 - `highlight: { amount: 0, threshold: 0.7 }` param block → Task 1 `defaults.js`. ✓
 - amount 0 = exact identity → Task 1 tests ("identity when amount is 0", "unchanged when highlight is off"). ✓
 - `u_highlight` uniform + `render` wiring → Task 2 `shader.glsl` + `webgl.js`. ✓
-- Presets need no code change → confirmed; the new field serializes through the existing `structuredClone`-based save/load. No task needed. ✓
+- Presets saved after this feature ship include `highlight` automatically. Presets saved before it are missing the key; loading one requires `withDefaults(preset)` (in `src/ui.js` preset-load handler) to backfill defaults so old presets don't crash. ✓
 - UI Highlights group, Amount + Threshold, ranges/defaults → Task 3 `ui.js`. ✓
 - E2E shader pin extended to a highlight-on set → Task 2. ✓
 - E2E app group count 3 → 4 → Task 3. ✓

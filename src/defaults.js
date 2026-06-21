@@ -12,3 +12,9 @@ export const DEFAULTS = Object.freeze({
 export function cloneDefaults() {
   return structuredClone(DEFAULTS);
 }
+
+// Merge a preset with defaults, backfilling any top-level blocks the preset
+// does not provide (e.g. presets saved before a new param block was added).
+export function withDefaults(params) {
+  return { ...cloneDefaults(), ...structuredClone(params) };
+}

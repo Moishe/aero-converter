@@ -1,5 +1,5 @@
 import { createRenderer } from './webgl.js';
-import { cloneDefaults } from './defaults.js';
+import { cloneDefaults, withDefaults } from './defaults.js';
 import { loadPresets, savePreset, deletePreset } from './presets.js';
 
 const CONTROLS = [
@@ -188,7 +188,7 @@ export function init() {
     if (!name) return;
     const preset = loadPresets()[name];
     if (preset) {
-      params = structuredClone(preset);
+      params = withDefaults(preset);
       syncControlsFromParams();
       render();
     }
