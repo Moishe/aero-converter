@@ -57,6 +57,7 @@ export function createRenderer(canvas) {
     curveR: gl.getUniformLocation(program, 'u_curveR'),
     curveG: gl.getUniformLocation(program, 'u_curveG'),
     curveB: gl.getUniformLocation(program, 'u_curveB'),
+    highlight: gl.getUniformLocation(program, 'u_highlight'),
   };
 
   let width = 0;
@@ -80,6 +81,7 @@ export function createRenderer(canvas) {
     gl.uniform3f(u.curveR, params.curveR.gain, params.curveR.gamma, params.curveR.offset);
     gl.uniform3f(u.curveG, params.curveG.gain, params.curveG.gamma, params.curveG.offset);
     gl.uniform3f(u.curveB, params.curveB.gain, params.curveB.gamma, params.curveB.offset);
+    gl.uniform2f(u.highlight, params.highlight.amount, params.highlight.threshold);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
   }
 
