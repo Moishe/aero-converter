@@ -128,8 +128,6 @@ describe('DEFAULTS highlight', () => {
   });
 });
 
-import { transformPixelPreAnchor, applyLevels, solveAnchor } from '../src/transform.js';
-
 const IDENTITY_LEVELS = { black: [0, 0, 0], white: [1, 1, 1], gamma: [1, 1, 1] };
 
 describe('applyLevels', () => {
