@@ -6,6 +6,11 @@ export const DEFAULTS = Object.freeze({
   curveG: Object.freeze({ gain: 0.95, gamma: 1.0, offset: 0.0 }),
   curveB: Object.freeze({ gain: 1.05, gamma: 1.0, offset: 0.02 }),
   highlight: Object.freeze({ amount: 0.0, threshold: 0.7 }),
+  levels: Object.freeze({
+    black: Object.freeze([0, 0, 0]),
+    white: Object.freeze([1, 1, 1]),
+    gamma: Object.freeze([1, 1, 1]),
+  }),
 });
 
 // Deep, mutable copy of DEFAULTS for use as live editable state.
