@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { cloneDefaults } from '../src/defaults.js';
 
 // Regression test for the vertical-flip bug: a full-spectrum photo loaded via
 // createImageBitmap() must render (and export) right-side up, not upside down.
@@ -6,7 +7,8 @@ import { test, expect } from '@playwright/test';
 // that canvas.toBlob() exports — so this asserts what the user actually sees.
 test('rendered result is not vertically flipped', async ({ page }) => {
   await page.goto('/');
-  const { top, bottom } = await page.evaluate(async () => {
+  const params = cloneDefaults();
+  const { top, bottom } = await page.evaluate(async (renderParams) => {
     const { createRenderer } = await import('/src/webgl.js');
 
     // 1x2 source via the app's real load path: TOP row red, BOTTOM row green.
@@ -20,14 +22,7 @@ test('rendered result is not vertically flipped', async ({ page }) => {
     const canvas = document.createElement('canvas');
     const renderer = createRenderer(canvas);
     renderer.setImage(bitmap);
-    renderer.render({
-      opacityG: 0.5, opacityB: 0.5,
-      curveR: { gain: 1, gamma: 1, offset: 0 },
-      curveG: { gain: 0.95, gamma: 1, offset: 0 },
-      curveB: { gain: 1.05, gamma: 1, offset: 0.02 },
-      highlight: { amount: 0, threshold: 0.7 },
-      levels: { black: [0, 0, 0], white: [1, 1, 1], gamma: [1, 1, 1] },
-    });
+    renderer.render(renderParams);
 
     // Read top-down (matches display + PNG export orientation).
     const out = document.createElement('canvas');
@@ -36,7 +31,7 @@ test('rendered result is not vertically flipped', async ({ page }) => {
     octx.drawImage(canvas, 0, 0);
     const d = octx.getImageData(0, 0, 1, 2).data;
     return { top: [d[0], d[1], d[2]], bottom: [d[4], d[5], d[6]] };
-  });
+  }, params);
 
   // Source TOP row is red input -> transform yields a green-dominant output.
   // Source BOTTOM row is green input -> transform yields a blue-dominant output.
