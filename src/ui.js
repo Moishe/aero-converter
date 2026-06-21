@@ -20,6 +20,10 @@ const CONTROLS = [
     { path: 'curveB.gamma', label: 'Gamma', min: 0.2, max: 5, step: 0.01 },
     { path: 'curveB.offset', label: 'Offset', min: -0.5, max: 0.5, step: 0.01 },
   ] },
+  { group: 'Highlights', items: [
+    { path: 'highlight.amount', label: 'Amount', min: 0, max: 1, step: 0.01 },
+    { path: 'highlight.threshold', label: 'Threshold', min: 0, max: 1, step: 0.01 },
+  ] },
 ];
 
 function getPath(obj, path) {

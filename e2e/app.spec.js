@@ -7,7 +7,7 @@ test('app loads without console errors and shows controls', async ({ page }) => 
 
   await page.goto('/');
   await expect(page.locator('#file-input')).toBeVisible();
-  await expect(page.locator('#control-groups .group')).toHaveCount(3);
+  await expect(page.locator('#control-groups .group')).toHaveCount(4);
   await expect(page.locator('#export')).toBeDisabled();
   expect(errors, errors.join('\n')).toEqual([]);
 });
