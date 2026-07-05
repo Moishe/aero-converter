@@ -1,49 +1,94 @@
 import { describe, it, expect } from 'vitest';
-import { solveGuided, bisect, TARGETS } from '../src/guided.js';
-import { applyLevels } from '../src/transform.js';
+import { solveGuided, TARGETS } from '../src/guided.js';
+import { transformPixel } from '../src/transform.js';
+import { cloneDefaults, DEFAULTS } from '../src/defaults.js';
 
-const FEASIBLE_PRE = {
-  sky: { r: 0.30000000000000004, g: 0.45999999999999996, b: 0.75 },
-  foliage: { r: 0.7400000000000001, g: 0.2975, b: 0.42999999999999994 },
-  clouds: { r: 0.8360000000000001, g: 0.798, b: 0.886 },
+// Real-world regression fixture: source samples captured from a full-spectrum
+// desert photo where the levels-based solver failed (console capture, 2026-07-05).
+const DESERT = {
+  sky: { r: 0.659, g: 0.515, b: 0.101 },
+  foliage: { r: 0.459, g: 0.183, b: 0.177 },
+  clouds: { r: 1.000, g: 0.753, b: 0.539 },
 };
 
-describe('bisect', () => {
-  it('finds a root of a monotonic function', () => {
-    expect(bisect((x) => x - 0.3, 0, 1)).toBeCloseTo(0.3, 4);
-  });
-  it('returns the closer endpoint when there is no sign change', () => {
-    // f(x) = x + 1 is always positive on [0,1]; |f(0)|=1 < |f(1)|=2 -> 0
-    expect(bisect((x) => x + 1, 0, 1)).toBe(0);
-  });
-});
+const REGIONS = ['sky', 'foliage', 'clouds'];
 
-describe('solveGuided', () => {
-  it('maps each sample to its target for a feasible (monotonic) case', () => {
-    const levels = solveGuided(FEASIBLE_PRE, TARGETS);
-    for (const region of ['sky', 'foliage', 'clouds']) {
-      const out = applyLevels(FEASIBLE_PRE[region], levels);
-      expect(out.r).toBeCloseTo(TARGETS[region][0], 2);
-      expect(out.g).toBeCloseTo(TARGETS[region][1], 2);
-      expect(out.b).toBeCloseTo(TARGETS[region][2], 2);
+function paramsWith(solved) {
+  const params = cloneDefaults();
+  Object.assign(params, solved);
+  return params;
+}
+
+describe('solveGuided (recipe solver)', () => {
+  it('reproduces all nine targets on the desert regression fixture', () => {
+    const solved = solveGuided(DESERT, TARGETS);
+    const params = paramsWith(solved);
+    for (const region of REGIONS) {
+      const out = transformPixel(DESERT[region], params);
+      expect(Math.abs(out.r - TARGETS[region][0]), `${region} r`).toBeLessThan(0.02);
+      expect(Math.abs(out.g - TARGETS[region][1]), `${region} g`).toBeLessThan(0.02);
+      expect(Math.abs(out.b - TARGETS[region][2]), `${region} b`).toBeLessThan(0.02);
     }
   });
-  it('falls back to identity per channel for degenerate (duplicate) samples', () => {
-    const pre = {
-      sky: { r: 0.5, g: 0.5, b: 0.5 },
-      foliage: { r: 0.5, g: 0.5, b: 0.5 },
-      clouds: { r: 0.9, g: 0.9, b: 0.9 },
+
+  it('solves a feasible synthetic case near-exactly', () => {
+    const sources = {
+      sky: { r: 0.7, g: 0.5, b: 0.2 },
+      foliage: { r: 0.4, g: 0.2, b: 0.6 },
+      clouds: { r: 0.9, g: 0.8, b: 0.5 },
     };
-    expect(solveGuided(pre, TARGETS)).toEqual({ black: [0, 0, 0], white: [1, 1, 1], gamma: [1, 1, 1] });
+    const known = paramsWith({
+      opacityR: 0.2, opacityG: 0.4, opacityB: 0.3,
+      curveR: { gain: 1.1, gamma: 1.5, offset: 0.05 },
+      curveG: { gain: 0.9, gamma: 0.8, offset: 0.1 },
+      curveB: { gain: 1.2, gamma: 1.2, offset: 0.0 },
+    });
+    const targets = {};
+    for (const region of REGIONS) {
+      const out = transformPixel(sources[region], known);
+      targets[region] = [out.r, out.g, out.b];
+    }
+    const solved = solveGuided(sources, targets);
+    const params = paramsWith(solved);
+    for (const region of REGIONS) {
+      const out = transformPixel(sources[region], params);
+      for (const [ci, ch] of [[0, 'r'], [1, 'g'], [2, 'b']]) {
+        expect(Math.abs(out[ch] - targets[region][ci]), `${region} ${ch}`).toBeLessThan(1e-3);
+      }
+    }
   });
-  it('returns finite, in-range levels (gamma within [0.1,10]) and never throws', () => {
-    const levels = solveGuided(FEASIBLE_PRE, TARGETS);
-    for (const v of [...levels.black, ...levels.white, ...levels.gamma]) {
-      expect(Number.isFinite(v)).toBe(true);
+
+  it('returns params within slider ranges and never throws', () => {
+    const solved = solveGuided(DESERT, TARGETS);
+    for (const k of ['opacityR', 'opacityG', 'opacityB']) {
+      expect(solved[k]).toBeGreaterThanOrEqual(0);
+      expect(solved[k]).toBeLessThanOrEqual(1);
     }
-    for (const g of levels.gamma) {
-      expect(g).toBeGreaterThanOrEqual(0.1);
-      expect(g).toBeLessThanOrEqual(10);
+    for (const c of ['curveR', 'curveG', 'curveB']) {
+      expect(solved[c].gain).toBeGreaterThanOrEqual(0);
+      expect(solved[c].gain).toBeLessThanOrEqual(2);
+      expect(solved[c].gamma).toBeGreaterThanOrEqual(0.1);
+      expect(solved[c].gamma).toBeLessThanOrEqual(10);
+      expect(solved[c].offset).toBeGreaterThanOrEqual(-0.5);
+      expect(solved[c].offset).toBeLessThanOrEqual(0.5);
+      for (const v of [solved[c].gain, solved[c].gamma, solved[c].offset]) {
+        expect(Number.isFinite(v)).toBe(true);
+      }
     }
+  });
+
+  it('is deterministic', () => {
+    expect(solveGuided(DESERT, TARGETS)).toEqual(solveGuided(DESERT, TARGETS));
+  });
+
+  it('keeps channel defaults when samples are inseparable', () => {
+    const flat = { r: 0.5, g: 0.5, b: 0.5 };
+    const solved = solveGuided({ sky: flat, foliage: flat, clouds: flat }, TARGETS);
+    expect(solved.opacityR).toBe(DEFAULTS.opacityR);
+    expect(solved.opacityG).toBe(DEFAULTS.opacityG);
+    expect(solved.opacityB).toBe(DEFAULTS.opacityB);
+    expect(solved.curveR).toEqual({ ...DEFAULTS.curveR });
+    expect(solved.curveG).toEqual({ ...DEFAULTS.curveG });
+    expect(solved.curveB).toEqual({ ...DEFAULTS.curveB });
   });
 });
