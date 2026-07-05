@@ -33,6 +33,8 @@ function logSpace(lo, hi, count) {
   const llo = Math.log(lo);
   const lhi = Math.log(hi);
   for (let i = 0; i < count; i++) out.push(Math.exp(llo + (lhi - llo) * (i / (count - 1))));
+  out[0] = lo;
+  out[count - 1] = hi;
   return out;
 }
 
@@ -89,7 +91,7 @@ function goldenMin(f, lo, hi, iters = 24) {
 function subtracted(as, bs, k) {
   const xs = [as[0] - k * bs[0], as[1] - k * bs[1], as[2] - k * bs[2]];
   const spread = Math.max(xs[0], xs[1], xs[2]) - Math.min(xs[0], xs[1], xs[2]);
-  return spread < SEPARATION_EPS ? null : xs;
+  return spread >= SEPARATION_EPS ? xs : null;
 }
 
 // Fit (k, gain, gamma, offset) for one channel from three (a, b, target) points.

@@ -91,4 +91,17 @@ describe('solveGuided (recipe solver)', () => {
     expect(solved.curveG).toEqual({ ...DEFAULTS.curveG });
     expect(solved.curveB).toEqual({ ...DEFAULTS.curveB });
   });
+
+  it('keeps gamma within [0.1, 10] even when a fit pins at the grid boundary', () => {
+    const samples = {
+      sky: { r: 0.4923, g: 0.0397, b: 0.5460 },
+      foliage: { r: 0.2298, g: 0.1119, b: 0.7981 },
+      clouds: { r: 0.2757, g: 0.8451, b: 0.1101 },
+    };
+    const solved = solveGuided(samples, TARGETS);
+    for (const c of ['curveR', 'curveG', 'curveB']) {
+      expect(solved[c].gamma).toBeGreaterThanOrEqual(0.1);
+      expect(solved[c].gamma).toBeLessThanOrEqual(10);
+    }
+  });
 });

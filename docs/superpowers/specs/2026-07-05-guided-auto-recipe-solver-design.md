@@ -98,7 +98,7 @@ Per-channel search:
 6. Keep the global best `(k, gain, gamma, offset)` across the whole search.
 
 Properties: exact solutions score ≈ 0 and are found by the same path as best-effort
-ones (no separate fallback); the search is pure, deterministic, and ~3k trivial
+ones (no separate fallback); the search is pure, deterministic, and ~6.3k trivial
 evaluations per channel (instant). If every `k` was skipped as inseparable, the
 channel keeps its `DEFAULTS` values (opacity and curve).
 
