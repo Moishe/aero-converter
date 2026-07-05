@@ -52,6 +52,7 @@ export function createRenderer(canvas) {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
   const u = {
+    opacityR: gl.getUniformLocation(program, 'u_opacityR'),
     opacityG: gl.getUniformLocation(program, 'u_opacityG'),
     opacityB: gl.getUniformLocation(program, 'u_opacityB'),
     curveR: gl.getUniformLocation(program, 'u_curveR'),
@@ -79,6 +80,7 @@ export function createRenderer(canvas) {
 
   function render(params) {
     gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.uniform1f(u.opacityR, params.opacityR);
     gl.uniform1f(u.opacityG, params.opacityG);
     gl.uniform1f(u.opacityB, params.opacityB);
     gl.uniform3f(u.curveR, params.curveR.gain, params.curveR.gamma, params.curveR.offset);
