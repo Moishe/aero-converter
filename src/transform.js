@@ -35,7 +35,7 @@ export function applyHighlightDesat({ r, g, b }, { amount, threshold }) {
 export function transformPixelPreAnchor({ r, g, b }, params) {
   const ir = b;
   const out = {
-    r: curve(ir, params.curveR),
+    r: curve(ir - params.opacityR * g, params.curveR),
     g: curve(r - params.opacityG * ir, params.curveG),
     b: curve(g - params.opacityB * ir, params.curveB),
   };

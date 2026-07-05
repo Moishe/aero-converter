@@ -1,5 +1,6 @@
 // Canonical default parameters, shared by the UI, presets, and tests.
 export const DEFAULTS = Object.freeze({
+  opacityR: 0.0,
   opacityG: 0.5,
   opacityB: 0.5,
   curveR: Object.freeze({ gain: 1.0, gamma: 1.0, offset: 0.0 }),
