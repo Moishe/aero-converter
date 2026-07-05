@@ -13,7 +13,7 @@
 - Recipe mapping (verbatim): `ir = sb`; `R_out = curveR(ir − opacityR·sg)`; `G_out = curveG(sr − opacityG·ir)`; `B_out = curveB(sg − opacityB·ir)`. `opacityR` default 0.0 must be bit-identical to current behavior.
 - Shader mirrors the JS reference byte-for-byte; the e2e shader-pin must cover an `opacityR ≠ 0` param set.
 - Solver: `solveGuided(sourceSamples, targets)` takes RAW source samples (`{sky,foliage,clouds}` of `{r,g,b}` in [0,1]) and returns `{ opacityR, opacityG, opacityB, curveR, curveG, curveB }` (curves are `{gain,gamma,offset}`). Pure, deterministic, never throws.
-- Per-channel search (verbatim from spec): `k` grid [0,1] step 0.02; gamma grid 61 log-spaced values on [0.1,10]; skip a `k` when `max(x_i)−min(x_i) < 1e-3`; refine around the best cell with a `k` sweep ±0.02 step 0.002 and golden-section gamma refinement (≥20 iterations); closed-form least-squares line through `(x_i, y_i^gamma)` gives gain/offset; clamp gain [0,2], offset [−0.5,0.5], gamma [0.1,10]; score = `Σ (curve(x_i) − y_i)² + 1e-5·(ln gamma)²`; keep the global best. If every `k` is inseparable, the channel keeps its `DEFAULTS` opacity and curve.
+- Per-channel search (verbatim from spec): `k` grid [0,1] step 0.02; skip a `k` when `max(x_i)−min(x_i) < 1e-3`; for EACH `k`, gamma via a 61-value log grid on [0.1,10] then golden-section refinement (≥20 iterations) around that `k`'s best grid gamma (per-`k` refinement is required — refining only around the single best coarse cell converges to a near-miss on the desert fixture); then a fine `k` pass ±0.02 step 0.002 around the best `k` with the same per-`k` refinement; closed-form least-squares line through `(x_i, y_i^gamma)` gives gain/offset; clamp gain [0,2], offset [−0.5,0.5], gamma [0.1,10]; score = `Σ (curve(x_i) − y_i)² + 1e-5·(ln gamma)²`; keep the global best. If every `k` is inseparable, the channel keeps its `DEFAULTS` opacity and curve.
 - Targets unchanged: sky `[0.25,0.40,0.75]`, foliage `[0.80,0.15,0.35]`, clouds `[0.92,0.92,0.92]`.
 - Guided flow writes ONLY recipe controls; `levels` stays identity, `highlight` stays off. The neutral-anchor eyedroppers are untouched.
 - UI: Red group gains slider `{ path: 'opacityR', label: 'Visible opacity', min: 0, max: 1, step: 0.01 }` (first item, mirroring the other groups); all three `curve*.gamma` sliders become `min: 0.1, max: 10`.
@@ -397,37 +397,43 @@ function subtracted(as, bs, k) {
 }
 
 // Fit (k, gain, gamma, offset) for one channel from three (a, b, target) points.
+// For each candidate k, the best gamma is found by a coarse log-grid scan followed
+// by golden-section refinement. Per-k refinement matters: the exact-fit family can
+// sit at a k whose coarse-grid cell scores worse than a distant local optimum, so
+// refining only around the single best coarse cell can converge to a near-miss.
 // Returns the best candidate, or null when no k separates the samples.
 function solveChannel(as, bs, ys) {
-  let best = null;
-
-  for (let i = 0; i <= 50; i++) {
-    const k = i * K_STEP;
+  const evaluateK = (k) => {
     const xs = subtracted(as, bs, k);
-    if (!xs) continue;
+    if (!xs) return null;
+    let bestGrid = null;
     for (const gamma of GAMMA_GRID) {
       const e = evaluate(xs, ys, gamma);
-      if (!best || e.score < best.score) {
-        best = { k, gamma, gain: e.gain, offset: e.offset, score: e.score };
+      if (!bestGrid || e.score < bestGrid.score) {
+        bestGrid = { k, gamma, gain: e.gain, offset: e.offset, score: e.score };
       }
     }
+    const gLo = clamp(bestGrid.gamma / 2, GAMMA_MIN, GAMMA_MAX);
+    const gHi = clamp(bestGrid.gamma * 2, GAMMA_MIN, GAMMA_MAX);
+    const gamma = goldenMin((g) => evaluate(xs, ys, g).score, gLo, gHi);
+    const e = evaluate(xs, ys, gamma);
+    return e.score < bestGrid.score
+      ? { k, gamma, gain: e.gain, offset: e.offset, score: e.score }
+      : bestGrid;
+  };
+
+  let best = null;
+  for (let i = 0; i <= 50; i++) {
+    const c = evaluateK(i * K_STEP);
+    if (c && (!best || c.score < best.score)) best = c;
   }
   if (!best) return null;
 
-  // Refine around the best coarse cell: fine k sweep, golden-section on gamma.
+  // Fine k sweep around the winner, same per-k gamma refinement.
   const k0 = best.k;
-  const gammaSeed = best.gamma;
-  const gLo = clamp(gammaSeed / 2, GAMMA_MIN, GAMMA_MAX);
-  const gHi = clamp(gammaSeed * 2, GAMMA_MIN, GAMMA_MAX);
   for (let i = -10; i <= 10; i++) {
-    const k = clamp(k0 + i * K_REFINE_STEP, 0, 1);
-    const xs = subtracted(as, bs, k);
-    if (!xs) continue;
-    const gamma = goldenMin((g) => evaluate(xs, ys, g).score, gLo, gHi);
-    const e = evaluate(xs, ys, gamma);
-    if (e.score < best.score) {
-      best = { k, gamma, gain: e.gain, offset: e.offset, score: e.score };
-    }
+    const c = evaluateK(clamp(k0 + i * K_REFINE_STEP, 0, 1));
+    if (c && c.score < best.score) best = c;
   }
   return best;
 }

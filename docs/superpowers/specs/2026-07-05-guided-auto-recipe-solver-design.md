@@ -77,10 +77,14 @@ Per-channel search:
 1. Grid over `k ∈ [0,1]` step 0.02 (51 values).
 2. For each `k`: compute `x_i = a_i − k·b_i`; skip this `k` if
    `max(x_i) − min(x_i) < 1e-3` (samples inseparable).
-3. Grid over `gamma`: 61 log-spaced values on [0.1, 10]. After the full coarse
-   grid, refine around the best cell: sweep `k` at step 0.002 over ±0.02 of the best
-   `k`, and for each refined `k` refine gamma by golden-section (≥20 iterations)
-   seeded from the best cell's gamma neighborhood.
+3. For EACH candidate `k`: scan gamma over 61 log-spaced values on [0.1, 10], then
+   refine gamma by golden-section (≥20 iterations) bracketed around that `k`'s best
+   grid gamma. Per-`k` refinement is required — the exact-fit family can sit at a
+   `k` whose coarse-grid cell scores worse than a distant local optimum, so refining
+   only around the single best coarse cell can converge to a near-miss (observed on
+   the desert fixture: coarse best `k=0.48` scored better than the exact family near
+   `k=0.36`). After the sweep, do a fine `k` pass at step 0.002 over ±0.02 of the
+   best `k`, with the same per-`k` gamma refinement.
 4. At each `(k, gamma)`: closed-form least-squares line through the three points
    `(x_i, y_i^gamma)` gives `gain`/`offset`; clamp `gain` to [0, 2], `offset` to
    [−0.5, 0.5], `gamma` to [0.1, 10] (the slider ranges, so results are always
