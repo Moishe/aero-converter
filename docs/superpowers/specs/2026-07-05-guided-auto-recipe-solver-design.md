@@ -85,9 +85,12 @@ Per-channel search:
    `(x_i, y_i^gamma)` gives `gain`/`offset`; clamp `gain` to [0, 2], `offset` to
    [−0.5, 0.5], `gamma` to [0.1, 10] (the slider ranges, so results are always
    displayable and hand-tunable).
-5. Score = `Σ_i (curve(x_i; gain, gamma, offset) − y_i)² + 0.001·(ln gamma)²`
+5. Score = `Σ_i (curve(x_i; gain, gamma, offset) − y_i)² + 1e-5·(ln gamma)²`
    — the residual is computed through the REAL curve (including its clamp), and the
-   regularizer prefers moderate curves among near-ties.
+   regularizer prefers moderate curves among near-ties. The weight is deliberately
+   tiny: at 1e-3 a lower-gamma approximate fit could outscore an exact high-gamma
+   fit and miss targets by more than the regression tolerance; 1e-5 only breaks
+   genuine ties.
 6. Keep the global best `(k, gain, gamma, offset)` across the whole search.
 
 Properties: exact solutions score ≈ 0 and are found by the same path as best-effort
