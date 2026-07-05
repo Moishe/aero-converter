@@ -215,7 +215,7 @@ git commit -m "Add guided-auto levels solver"
 - Modify: `index.html` (add the Guided Auto button + status element to the anchor group; add a status style)
 - Modify: `src/ui.js` (import solver; enable the button on load; replace the anchor section with a combined anchor+guided section)
 - Modify: `e2e/app.spec.js` (assert the guided button is disabled before load)
-- Create: `e2e/guided.spec.js` (three-click flow drives foliage to red-dominant)
+- Create: `e2e/guided.spec.js` (three-click flow makes foliage redder than default + red-dominant)
 
 **Interfaces:**
 - Consumes: `solveGuided`, `TARGETS` (Task 1); `transformPixelPreAnchor` (transform.js); `cloneDefaults` (defaults.js); `canvasPixelFromEvent` (coords.js); the existing `sampleSource`, `syncControlsFromParams`, `render`, `params`, `hasImage` in `init()`.
@@ -250,9 +250,11 @@ Create `e2e/guided.spec.js`:
 import { test, expect } from '@playwright/test';
 
 // Loads a 3-stripe image (sky | foliage | clouds source colors), runs the guided
-// flow clicking each stripe in order, and asserts the foliage stripe renders
-// red-dominant (the solver fits levels so foliage lands on its crimson target).
-test('guided auto drives the foliage region to red-dominant', async ({ page }) => {
+// flow clicking each stripe in order, and asserts the foliage stripe becomes MORE
+// red than it rendered by default (proving the solve ran end-to-end — foliage source
+// is already reddish at identity levels, so a redder-than-default check is what
+// distinguishes a working flow from a no-op) and lands red-dominant.
+test('guided auto drives the foliage region toward red', async ({ page }) => {
   const errors = [];
   page.on('console', (msg) => { if (msg.type() === 'error') errors.push(msg.text()); });
   page.on('pageerror', (err) => errors.push(err.message));
@@ -277,17 +279,9 @@ test('guided auto drives the foliage region to red-dominant', async ({ page }) =
   });
 
   await expect(page.locator('#guided-auto')).toBeEnabled();
-  await page.click('#guided-auto');
 
-  const canvas = page.locator('#result-canvas');
-  const box = await canvas.boundingBox();
-  // Click centers of the three stripes: 1/6, 3/6, 5/6 of the width.
-  await canvas.click({ position: { x: box.width * (1 / 6), y: box.height / 2 } }); // sky
-  await canvas.click({ position: { x: box.width * (3 / 6), y: box.height / 2 } }); // foliage
-  await canvas.click({ position: { x: box.width * (5 / 6), y: box.height / 2 } }); // clouds
-
-  // Read the foliage (middle) region from the result.
-  const px = await page.evaluate(() => {
+  // Read the foliage (middle) region's rendered pixel.
+  const readFoliage = () => page.evaluate(() => {
     const rc = document.getElementById('result-canvas');
     const o = document.createElement('canvas');
     o.width = rc.width; o.height = rc.height;
@@ -296,8 +290,26 @@ test('guided auto drives the foliage region to red-dominant', async ({ page }) =
     return [d[0], d[1], d[2]];
   });
 
-  expect(px[0], `foliage R should exceed G, got ${px}`).toBeGreaterThan(px[1] + 30);
-  expect(px[0], `foliage R should exceed B, got ${px}`).toBeGreaterThan(px[2] + 30);
+  const before = await readFoliage(); // default render (levels identity)
+
+  await page.click('#guided-auto');
+  const canvas = page.locator('#result-canvas');
+  const box = await canvas.boundingBox();
+  // Click centers of the three stripes: 1/6, 3/6, 5/6 of the width.
+  await canvas.click({ position: { x: box.width * (1 / 6), y: box.height / 2 } }); // sky
+  await canvas.click({ position: { x: box.width * (3 / 6), y: box.height / 2 } }); // foliage
+  await canvas.click({ position: { x: box.width * (5 / 6), y: box.height / 2 } }); // clouds
+
+  const after = await readFoliage();
+
+  // The solve must have run: foliage red rises from its default toward the crimson
+  // target (the red channel is a feasible fit ~0.50 -> 0.80). A no-op would leave
+  // `after` == `before` and fail this.
+  expect(after[0], `foliage red should increase after the solve (before ${before}, after ${after})`)
+    .toBeGreaterThan(before[0] + 30);
+  // ...and it lands red-dominant.
+  expect(after[0], `foliage R should exceed G, got ${after}`).toBeGreaterThan(after[1] + 30);
+  expect(after[0], `foliage R should exceed B, got ${after}`).toBeGreaterThan(after[2] + 30);
   await expect(page.locator('#guided-status')).toBeHidden();
   expect(errors, errors.join('\n')).toEqual([]);
 });
@@ -435,7 +447,7 @@ Run: `npx vite build`
 Expected: build succeeds.
 
 Run: `lsof -ti tcp:5173 | xargs kill -9 2>/dev/null; npx playwright test e2e/app.spec.js e2e/guided.spec.js`
-Expected: PASS — guided button present and disabled before load (app.spec); the three-click flow drives the foliage stripe red-dominant and clears the status (guided.spec).
+Expected: PASS — guided button present and disabled before load (app.spec); the three-click flow makes the foliage stripe redder than its default render and red-dominant, and clears the status (guided.spec).
 
 - [ ] **Step 6: Run the whole suite together**
 
