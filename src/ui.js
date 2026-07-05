@@ -7,20 +7,21 @@ import { solveGuided, TARGETS } from './guided.js';
 
 const CONTROLS = [
   { group: 'Red output (IR)', items: [
+    { path: 'opacityR', label: 'Visible opacity', min: 0, max: 1, step: 0.01 },
     { path: 'curveR.gain', label: 'Gain', min: 0, max: 2, step: 0.01 },
-    { path: 'curveR.gamma', label: 'Gamma', min: 0.2, max: 5, step: 0.01 },
+    { path: 'curveR.gamma', label: 'Gamma', min: 0.1, max: 10, step: 0.01 },
     { path: 'curveR.offset', label: 'Offset', min: -0.5, max: 0.5, step: 0.01 },
   ] },
   { group: 'Green output (red − IR)', items: [
     { path: 'opacityG', label: 'IR opacity', min: 0, max: 1, step: 0.01 },
     { path: 'curveG.gain', label: 'Gain', min: 0, max: 2, step: 0.01 },
-    { path: 'curveG.gamma', label: 'Gamma', min: 0.2, max: 5, step: 0.01 },
+    { path: 'curveG.gamma', label: 'Gamma', min: 0.1, max: 10, step: 0.01 },
     { path: 'curveG.offset', label: 'Offset', min: -0.5, max: 0.5, step: 0.01 },
   ] },
   { group: 'Blue output (green − IR)', items: [
     { path: 'opacityB', label: 'IR opacity', min: 0, max: 1, step: 0.01 },
     { path: 'curveB.gain', label: 'Gain', min: 0, max: 2, step: 0.01 },
-    { path: 'curveB.gamma', label: 'Gamma', min: 0.2, max: 5, step: 0.01 },
+    { path: 'curveB.gamma', label: 'Gamma', min: 0.1, max: 10, step: 0.01 },
     { path: 'curveB.offset', label: 'Offset', min: -0.5, max: 0.5, step: 0.01 },
   ] },
   { group: 'Highlights', items: [
@@ -280,9 +281,7 @@ export function init() {
 
   function solveGuidedFromSamples() {
     params = cloneDefaults();
-    const pre = {};
-    for (const key of GUIDED_STEPS) pre[key] = transformPixelPreAnchor(guidedSamples[key], params);
-    params.levels = solveGuided(pre, TARGETS);
+    Object.assign(params, solveGuided(guidedSamples, TARGETS));
     syncControlsFromParams();
     render();
   }
