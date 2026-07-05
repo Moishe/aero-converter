@@ -132,6 +132,8 @@ export function init() {
       anchorButtons.white.disabled = false;
       anchorResetBtn.disabled = false;
       guidedBtn.disabled = false;
+      setGuidedStep(null);
+      setAnchorMode(null);
       render();
     } catch (e) {
       showError('Could not load that image.');
@@ -151,6 +153,7 @@ export function init() {
   $('reset').addEventListener('click', () => {
     params = cloneDefaults();
     syncControlsFromParams();
+    setGuidedStep(null);
     render();
   });
 
@@ -222,7 +225,7 @@ export function init() {
   let anchorMode = null;
 
   const GUIDED_STEPS = ['sky', 'foliage', 'clouds'];
-  const GUIDED_PROMPTS = { sky: 'Click the sky', foliage: 'Click the foliage', clouds: 'Click the clouds' };
+  const GUIDED_PROMPTS = { sky: 'Click the sky…', foliage: 'Click the foliage…', clouds: 'Click the clouds…' };
   let guidedStep = null;
   let guidedSamples = {};
 
@@ -309,6 +312,7 @@ export function init() {
   anchorResetBtn.addEventListener('click', () => {
     params.levels = cloneDefaults().levels;
     setAnchorMode(null);
+    setGuidedStep(null);
     render();
   });
 }

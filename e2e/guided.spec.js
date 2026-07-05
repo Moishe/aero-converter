@@ -64,3 +64,43 @@ test('guided auto drives the foliage region toward red', async ({ page }) => {
   await expect(page.locator('#guided-status')).toBeHidden();
   expect(errors, errors.join('\n')).toEqual([]);
 });
+
+// Loading a new image while a guided flow is armed must cancel that flow — otherwise
+// a solve could mix samples picked against the old image with clicks on the new one.
+test('loading a new image cancels an in-progress guided flow', async ({ page }) => {
+  const errors = [];
+  page.on('console', (msg) => { if (msg.type() === 'error') errors.push(msg.text()); });
+  page.on('pageerror', (err) => errors.push(err.message));
+
+  await page.goto('/');
+
+  const loadImage = (fill, name) => page.evaluate(async ({ fill, name }) => {
+    const c = document.createElement('canvas');
+    c.width = 60; c.height = 20;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = fill;
+    ctx.fillRect(0, 0, 60, 20);
+    const blob = await new Promise((res) => c.toBlob(res, 'image/png'));
+    const file = new File([blob], name, { type: 'image/png' });
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    const input = document.getElementById('file-input');
+    input.files = dt.files;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }, { fill, name });
+
+  // Load the first image.
+  await loadImage('rgb(128,128,51)', 'first.png');
+  await expect(page.locator('#guided-auto')).toBeEnabled();
+
+  // Arm the guided flow on image A.
+  await page.click('#guided-auto');
+  await expect(page.locator('#guided-status')).toBeVisible();
+
+  // Load a second image while the flow is still armed.
+  await loadImage('rgb(242,250,230)', 'second.png');
+
+  // The flow must have been cancelled by the new load.
+  await expect(page.locator('#guided-status')).toBeHidden();
+  expect(errors, errors.join('\n')).toEqual([]);
+});
