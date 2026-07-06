@@ -13,5 +13,6 @@ test('app loads without console errors and shows controls', async ({ page }) => 
   await expect(page.locator('#anchor-gray')).toBeDisabled();
   await expect(page.locator('#anchor-white')).toBeDisabled();
   await expect(page.locator('#anchor-reset')).toBeDisabled();
+  await expect(page.locator('#guided-auto')).toBeDisabled();
   expect(errors, errors.join('\n')).toEqual([]);
 });

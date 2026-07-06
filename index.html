@@ -25,6 +25,7 @@
       button:disabled { opacity: 0.5; cursor: default; }
       .presets { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin-top: 0.5rem; }
       .presets input, .presets select { background: #11151a; color: #eee; border: 1px solid #456; border-radius: 5px; padding: 0.3rem; }
+      .guided-status { font-size: 0.78rem; color: #9cf; margin: 0.3rem 0 0; }
     </style>
   </head>
   <body>
@@ -47,6 +48,8 @@
           <button id="anchor-gray" disabled>Pick gray</button>
           <button id="anchor-white" disabled>Pick white</button>
           <button id="anchor-reset" disabled>Reset anchor</button>
+          <button id="guided-auto" disabled>Guided Auto</button>
+          <p id="guided-status" class="guided-status" aria-live="polite" hidden></p>
         </div>
         <button id="reset">Reset</button>
         <button id="export" disabled>Export PNG</button>

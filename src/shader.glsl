@@ -4,6 +4,7 @@ varying vec2 v_uv;
 uniform sampler2D u_image;
 uniform float u_opacityG;
 uniform float u_opacityB;
+uniform float u_opacityR;
 uniform vec3 u_curveR; // x=gain, y=gamma, z=offset
 uniform vec3 u_curveG;
 uniform vec3 u_curveB;
@@ -40,7 +41,7 @@ vec3 applyLevels(vec3 c, vec3 bp, vec3 wp, vec3 g) {
 void main() {
   vec3 src = texture2D(u_image, v_uv).rgb;
   float ir = src.b;
-  float r = applyCurve(ir, u_curveR);
+  float r = applyCurve(ir - u_opacityR * src.g, u_curveR);
   float g = applyCurve(src.r - u_opacityG * ir, u_curveG);
   float b = applyCurve(src.g - u_opacityB * ir, u_curveB);
   vec3 outColor = highlightDesat(vec3(r, g, b), u_highlight);

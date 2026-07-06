@@ -3,23 +3,25 @@ import { cloneDefaults, withDefaults } from './defaults.js';
 import { loadPresets, savePreset, deletePreset } from './presets.js';
 import { transformPixelPreAnchor, solveAnchor } from './transform.js';
 import { canvasPixelFromEvent } from './coords.js';
+import { solveGuided, TARGETS } from './guided.js';
 
 const CONTROLS = [
   { group: 'Red output (IR)', items: [
+    { path: 'opacityR', label: 'Visible opacity', min: 0, max: 1, step: 0.01 },
     { path: 'curveR.gain', label: 'Gain', min: 0, max: 2, step: 0.01 },
-    { path: 'curveR.gamma', label: 'Gamma', min: 0.2, max: 5, step: 0.01 },
+    { path: 'curveR.gamma', label: 'Gamma', min: 0.1, max: 10, step: 0.01 },
     { path: 'curveR.offset', label: 'Offset', min: -0.5, max: 0.5, step: 0.01 },
   ] },
   { group: 'Green output (red − IR)', items: [
     { path: 'opacityG', label: 'IR opacity', min: 0, max: 1, step: 0.01 },
     { path: 'curveG.gain', label: 'Gain', min: 0, max: 2, step: 0.01 },
-    { path: 'curveG.gamma', label: 'Gamma', min: 0.2, max: 5, step: 0.01 },
+    { path: 'curveG.gamma', label: 'Gamma', min: 0.1, max: 10, step: 0.01 },
     { path: 'curveG.offset', label: 'Offset', min: -0.5, max: 0.5, step: 0.01 },
   ] },
   { group: 'Blue output (green − IR)', items: [
     { path: 'opacityB', label: 'IR opacity', min: 0, max: 1, step: 0.01 },
     { path: 'curveB.gain', label: 'Gain', min: 0, max: 2, step: 0.01 },
-    { path: 'curveB.gamma', label: 'Gamma', min: 0.2, max: 5, step: 0.01 },
+    { path: 'curveB.gamma', label: 'Gamma', min: 0.1, max: 10, step: 0.01 },
     { path: 'curveB.offset', label: 'Offset', min: -0.5, max: 0.5, step: 0.01 },
   ] },
   { group: 'Highlights', items: [
@@ -130,6 +132,9 @@ export function init() {
       anchorButtons.gray.disabled = false;
       anchorButtons.white.disabled = false;
       anchorResetBtn.disabled = false;
+      guidedBtn.disabled = false;
+      setGuidedStep(null);
+      setAnchorMode(null);
       render();
     } catch (e) {
       showError('Could not load that image.');
@@ -149,6 +154,7 @@ export function init() {
   $('reset').addEventListener('click', () => {
     params = cloneDefaults();
     syncControlsFromParams();
+    setGuidedStep(null);
     render();
   });
 
@@ -207,7 +213,7 @@ export function init() {
     refreshPresetList();
   });
 
-  // --- Neutral anchor (eyedroppers) ---
+  // --- Neutral anchor (eyedroppers) + guided auto ---
   const sourceCtx = sourceCanvas.getContext('2d');
   const anchorButtons = {
     black: $('anchor-black'),
@@ -215,19 +221,49 @@ export function init() {
     white: $('anchor-white'),
   };
   const anchorResetBtn = $('anchor-reset');
+  const guidedBtn = $('guided-auto');
+  const guidedStatus = $('guided-status');
   let anchorMode = null;
 
+  const GUIDED_STEPS = ['sky', 'foliage', 'clouds'];
+  const GUIDED_PROMPTS = { sky: 'Click the sky…', foliage: 'Click the foliage…', clouds: 'Click the clouds…' };
+  let guidedStep = null;
+  let guidedSamples = {};
+
+  function updateCursor() {
+    resultCanvas.style.cursor = (anchorMode || guidedStep) ? 'crosshair' : '';
+  }
+
+  function setGuidedStep(step) {
+    guidedStep = step;
+    guidedBtn.classList.toggle('active', step !== null);
+    guidedStatus.hidden = step === null;
+    guidedStatus.textContent = step ? GUIDED_PROMPTS[step] : '';
+    updateCursor();
+  }
+
   function setAnchorMode(mode) {
+    if (mode) setGuidedStep(null); // one active interaction at a time
     anchorMode = mode;
-    resultCanvas.style.cursor = mode ? 'crosshair' : '';
     for (const [m, btn] of Object.entries(anchorButtons)) {
       btn.classList.toggle('active', m === mode);
     }
+    updateCursor();
   }
 
   for (const [mode, btn] of Object.entries(anchorButtons)) {
     btn.addEventListener('click', () => setAnchorMode(anchorMode === mode ? null : mode));
   }
+
+  guidedBtn.addEventListener('click', () => {
+    if (guidedStep) {
+      setGuidedStep(null);
+    } else {
+      setAnchorMode(null);
+      guidedSamples = {};
+      setGuidedStep('sky');
+    }
+  });
 
   // Average a 3x3 block (clamped to image bounds) around (x,y); returns channels in [0,1].
   function sampleSource(x, y) {
@@ -243,9 +279,28 @@ export function init() {
     return { r: r / n / 255, g: g / n / 255, b: b / n / 255 };
   }
 
+  function solveGuidedFromSamples() {
+    params = cloneDefaults();
+    Object.assign(params, solveGuided(guidedSamples, TARGETS));
+    syncControlsFromParams();
+    render();
+  }
+
   resultCanvas.addEventListener('click', (e) => {
-    if (!anchorMode || !hasImage) return;
+    if (!hasImage) return;
     const { x, y } = canvasPixelFromEvent(e, resultCanvas);
+    if (guidedStep) {
+      guidedSamples[guidedStep] = sampleSource(x, y);
+      const next = GUIDED_STEPS[GUIDED_STEPS.indexOf(guidedStep) + 1];
+      if (next) {
+        setGuidedStep(next);
+      } else {
+        setGuidedStep(null);
+        solveGuidedFromSamples();
+      }
+      return;
+    }
+    if (!anchorMode) return;
     const sample = sampleSource(x, y);
     const value = transformPixelPreAnchor(sample, params);
     params.levels = solveAnchor(anchorMode, value, params.levels);
@@ -256,6 +311,7 @@ export function init() {
   anchorResetBtn.addEventListener('click', () => {
     params.levels = cloneDefaults().levels;
     setAnchorMode(null);
+    setGuidedStep(null);
     render();
   });
 }

@@ -208,3 +208,22 @@ describe('DEFAULTS levels', () => {
     expect(DEFAULTS.levels).toEqual({ black: [0, 0, 0], white: [1, 1, 1], gamma: [1, 1, 1] });
   });
 });
+
+describe('opacityR', () => {
+  it('defaults to 0 in DEFAULTS', () => {
+    expect(DEFAULTS.opacityR).toBe(0);
+  });
+  it('default 0 leaves the red channel identical to curveR(ir)', () => {
+    const params = cloneDefaults();
+    const out = transformPixel({ r: 0.3, g: 0.6, b: 0.4 }, params);
+    expect(out.r).toBeCloseTo(curve(0.4, params.curveR), 10);
+  });
+  it('subtracts opacityR times source green from the red input', () => {
+    const params = cloneDefaults();
+    params.opacityR = 0.5;
+    params.curveR = { gain: 1, gamma: 1, offset: 0 };
+    const out = transformPixel({ r: 0.0, g: 0.6, b: 0.9 }, params);
+    // ir − 0.5·sg = 0.9 − 0.30 = 0.6
+    expect(out.r).toBeCloseTo(0.6, 10);
+  });
+});

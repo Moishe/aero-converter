@@ -24,10 +24,18 @@ function levelsParams() {
   return p;
 }
 
+function opacityRParams() {
+  const p = cloneDefaults();
+  p.opacityR = 0.3;
+  p.curveR = { gain: 1.2, gamma: 7, offset: 0.05 };
+  return p;
+}
+
 const PARAM_SETS = [
   { label: 'defaults', params: cloneDefaults() },
   { label: 'highlight desaturation on', params: desatParams() },
   { label: 'neutral anchor levels on', params: levelsParams() },
+  { label: 'red visible-opacity on', params: opacityRParams() },
 ];
 
 test('shader output matches the transform.js reference', async ({ page }) => {
